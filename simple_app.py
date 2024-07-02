@@ -7,11 +7,12 @@ from transformers import AutoTokenizer
 # icons = {"assistant": "./Snowflake_Logomark_blue.svg", "user": "⛷️"}
 
 # App title
-st.set_page_config(page_title="Streamlit Replicate Chatbot")
+st.set_page_config(page_title="Streamlit Replicate Chatbot", page_icon="💬")
 
 # Replicate Credentials
 with st.sidebar:
-    st.title('Streamlit Replicate Chatbot')
+    st.title('💬 Streamlit Replicate Chatbot')
+    st.write('Create chatbots using various LLM models hosted at [Replicate](https://replicate.com/).')
     if 'REPLICATE_API_TOKEN' in st.secrets:
         replicate_api = st.secrets['REPLICATE_API_TOKEN']
     else:
@@ -19,12 +20,20 @@ with st.sidebar:
         if not (replicate_api.startswith('r8_') and len(replicate_api)==40):
             st.warning('Please enter your Replicate API token.', icon='⚠️')
             st.markdown("**Don't have an API token?** Head over to [Replicate](https://replicate.com) to sign up for one.")
-
     os.environ['REPLICATE_API_TOKEN'] = replicate_api
-    st.subheader("Adjust model parameters")
-    temperature = st.sidebar.slider('temperature', min_value=0.01, max_value=5.0, value=0.3, step=0.01)
-    top_p = st.sidebar.slider('top_p', min_value=0.01, max_value=1.0, value=0.9, step=0.01)
-    st.selectbox("Select a model",("meta/meta-llama-3-70b-instruct", "mistralai/mixtral-8x7b-instruct-v0.1", "google-deepmind/gemma-2b-it"),key="model")
+
+    st.subheader("Models and parameters")
+    model = st.selectbox("Select a model",("meta/meta-llama-3-70b-instruct", "mistralai/mixtral-8x7b-instruct-v0.1", "google-deepmind/gemma-2b-it"), key="model")
+    if model == "google-deepmind/gemma-2b-it":
+        model = "google-deepmind/gemma-2b-it:dff94eaf770e1fc211e425a50b51baa8e4cac6c39ef074681f9e39d778773626"
+    
+    temperature = st.sidebar.slider('temperature', min_value=0.01, max_value=5.0, value=0.7, step=0.01, help="Randomness of generated output")
+    if temperature >= 1:
+        st.warning('Values exceeding 1 produces more creative and random output as well as increased likelihood of hallucination.')
+    if temperature < 0.1:
+        st.warning('Values approaching 0 produces deterministic output. Recommended starting value is 0.7')
+    
+    top_p = st.sidebar.slider('top_p', min_value=0.01, max_value=1.0, value=0.9, step=0.01, help="Top p percentage of most likely tokens for output generation")
 
 # Store LLM-generated responses
 if "messages" not in st.session_state.keys():
@@ -75,7 +84,7 @@ def generate_response():
         st.button('Clear chat history', on_click=clear_chat_history, key="clear_chat_history")
         st.stop()
 
-    for event in replicate.stream(st.session_state.model,
+    for event in replicate.stream(model,
                            input={"prompt": prompt_str,
                                   "prompt_template": r"{prompt}",
                                   "temperature": temperature,
